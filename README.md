@@ -1,4 +1,4 @@
-#SILO Allocator Web App
+## SILO Allocator Web App
 
 Are you tired of collecting and rectifying messy census data before you begin your exciting SILO simulation? Are you tired of staring at Excel sheets to impute data, or working on disparate Python scripts to synthesise and harmonise land use data? SO ARE WE!!
 As serial SILO users, it is difficult and cumbersome to deal with volumes of heterogeneous population data, census data and travel diaries collected from surveys. Two research assistants at the TU Munich (Xingze Li, Amrutha Viswanath) have developed an automated process/pipeline to process this data and allocate jobs and zone attributes (with some help from Claude, of course)--- so that you can get on with your SILO simulation with as little frustration as possible. 
