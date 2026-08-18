@@ -1,4 +1,4 @@
-## SILO Allocator Web App
+## SILO Allocator Web App - CAUTIN!! -- !!!!STILL BEING ACTIVELY DEVELOPED!!!!
 
 Are you tired of collecting and rectifying messy census data before you begin your exciting SILO simulation? Are you tired of staring at Excel sheets to impute data, or working on disparate Python scripts to synthesise and harmonise land use data? SO ARE WE!!
 As serial SILO users, it is difficult and cumbersome to deal with volumes of heterogeneous population data, census data and travel diaries collected from surveys. Two research assistants at the TU Munich (Xingze Li, Amrutha Viswanath) have developed an automated process/pipeline to process this data and allocate jobs and zone attributes (with some help from Claude, of course)--- so that you can get on with your SILO simulation with as little frustration as possible. 
@@ -78,7 +78,7 @@ Edit `config.py` for:
 - `JOB_TYPE_LABELS` / `FCLASS_REMAP` — the 1–10 job type labels and the
   observation-tower → communications-tower special case from Stage 5.
 
-## Notes on fidelity to the original workflow
+## What still needs some manual work
 
 - QGIS "Fix geometries", "Intersection" and "Difference" tools are
   replaced with `buffer(0)` + `geopandas.overlay` in `pipeline/geo_utils.py`
