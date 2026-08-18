@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zone Attribution — Job Location Pipeline</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bahnschrift:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<header class="hero">
+  <div class="rail"></div>
+  <div class="hero-inner">
+    <p class="eyebrow">TAZ · OSM · Geofabrik</p>
+    <h1>SILO Job Allocation</h1>
+    <p class="lede">Turns raw OpenStreetMap buildings, landuse and POIs into
+      per-zone job counts — the borough/parish, buildings, POI and jobLocation
+      stages, run end to end without QGIS.</p>
+    <svg class="contour" viewBox="0 0 600 60" preserveAspectRatio="none" aria-hidden="true">
+      <path d="M0,40 C60,10 120,55 180,30 S300,5 360,35 S480,50 540,20 S600,10 600,25" />
+    </svg>
+  </div>
+</header>
+
+<main class="pipeline">
+
+  <section class="stage" id="stage-1" data-step="1">
+    <div class="stage-marker"><span>01</span></div>
+    <div class="stage-body">
+      <h2>Borough</h2>
+      <p class="desc">Assign each TAZ zone its borough via a centroid-in-polygon join. Replaces <code>add_borough_BBSR.ipynb</code>.</p>
+      <div class="field-grid">
+        <label>TAZ zones file <span class="hint">.shp (select all parts), .geojson or .gpkg</span>
+         <input type="file" data-role="zones_path" data-vector="true" accept=".shp,.shx,.dbf, .prj,.cpg,.geojson,.json,.gpkg" multiple></label>
+        <label>Borough boundaries file <span class="hint">.shp (select all parts), .geojson or .gpkg</span>
+         <input type="file" data-role="borough_path" data-vector="true" accept=".shp, .shx, .dbf, .prj, .cpg, .geojson,.json,.gpkg" multiple></label>
+      </div>
+      <button class="run-btn">Run borough assignment</button>
+      <div class="console" data-console></div>
+      <div class="outputs" data-outputs></div>
+    </div>
+  </section>
+
+  <section class="stage" id="stage-2" data-step="2">
+    <div class="stage-marker"><span>02</span></div>
+    <div class="stage-body">
+      <h2>Buildings &amp; Landuse</h2>
+      <p class="desc">Pulls buildings + landuse from ohsome, removes overlaps, merges the layers, classifies by type (1–10) and computes job area % per zone.</p>
+      <div class="field-grid">
+        <label>Bounding box <span class="hint">west,south,east,north</span><input type="text" data-role="bbox" placeholder="11.36,48.06,11.72,48.25"></label>
+        <label>TAZ zones file <span class="hint">.shp (select all parts), .geojson or gpkg</span> 
+          <input type="file" data-role="zones_path" data-vector="true" accept=".shp, .shx, .dbf, .prj, .cpg, .geojson, .json, .gpkg" multiple></label>
+        <label>landuse_type.csv <input type="file" data-role="landuse_type_csv" accept=".csv"></label>
+        <label>Building footprint file (.shp or same format as the TAZ and parish boundary files) <span class="hint">optional - skips the ohsome fetch if provided</span>
+         <input type="file" data-role="buildings_file" data-vector="true" accept=".shp, .shx, .dbf, .prj, .cpg, .geojson, .json, .gpkg" multiple></label>
+        <label>Landuse file (.shp or same format as the TAZ and parish boundary files) <span class="hint">optional - skips the ohsome fetch if provided</span>
+         <input type="file" data-role="landuse_file" data-vector="true" accept=".shp, .shx, .dbf, .prj, .cpg, .geojson, .json, .gpkg" multiple></label>
+      </div>
+      <button class="run-btn">Run buildings pipeline</button>
+      <div class="console" data-console></div>
+      <div class="outputs" data-outputs></div>
+    </div>
+  </section>
+
+  <section class="stage" id="stage-3" data-step="3">
+    <div class="stage-marker"><span>03</span></div>
+    <div class="stage-body">
+      <h2>POI polygons</h2>
+      <p class="desc">Fetches POI polygons, fixes geometry, splits across zone borders and tags job type + percentage.</p>
+      <div class="field-grid">
+        <label>Bounding box <span class="hint">not needed if you upload a POI file below</span>
+          <input type="text" data-role="bbox" data-optional-if="poi_file" placeholder="11.36,48.06,11.72,48.25"></label>
+        <label>OSM keys <span class="hint">comma separated — not needed if you upload a POI file below</span>
+          <input type="text" data-role="keys" data-optional-if="poi_file" placeholder="shop,amenity,office,tourism,leisure"></label>
+        <label>TAZ zones file <span class="hint">.shp (select all parts), .geojson or .gpkg</span>
+          <input type="file" data-role="zones_path" data-vector="true" accept=".shp,.shx,.dbf,.prj,.cpg,.geojson,.json,.gpkg" multiple></label>
+        <label>jobtype mapping csv <input type="file" data-role="jobtype_map_csv" accept=".csv"></label>
+        <label>POI polygons file <span class="hint">optional — .shp/.geojson/.gpkg, skips the ohsome fetch if provided</span>
+          <input type="file" data-role="poi_file" data-optional="true" data-vector="true" accept=".geojson,.json,.gpkg,.shp,.shx,.dbf,.prj,.cpg" multiple></label>
+      </div>
+      <button class="run-btn">Run POI polygon pipeline</button>
+      <div class="console" data-console></div>
+      <div class="outputs" data-outputs></div>
+    </div>
+  </section>
+
+  <section class="stage" id="stage-4" data-step="4">
+    <div class="stage-marker"><span>04</span></div>
+    <div class="stage-body">
+      <h2>POI points</h2>
+      <p class="desc">Fetches POI points, joins TAZ/gemeinde IDs and tags job type + percentage.</p>
+      <div class="field-grid">
+        <label>Bounding box <span class="hint">not needed if you upload a POI file below</span>
+          <input type="text" data-role="bbox" data-optional-if="poi_file" placeholder="11.36,48.06,11.72,48.25"></label>
+        <label>OSM keys <span class="hint">comma separated — not needed if you upload a POI file below</span>
+          <input type="text" data-role="keys" data-optional-if="poi_file" placeholder="shop,amenity,office,tourism,leisure"></label>
+        <label>TAZ zones file <span class="hint">.shp (select all parts), .geojson or .gpkg</span>
+          <input type="file" data-role="zones_path" data-vector="true" accept=".shp,.shx,.dbf,.prj,.cpg,.geojson,.json,.gpkg" multiple></label>
+        <label>jobtype mapping csv <input type="file" data-role="jobtype_map_csv" accept=".csv"></label>
+        <label>POI points file <span class="hint">optional — .shp/.geojson/.gpkg, skips the ohsome fetch if provided</span>
+          <input type="file" data-role="poi_file" data-optional="true" data-vector="true" accept=".geojson,.json,.gpkg,.shp,.shx,.dbf,.prj,.cpg" multiple></label>
+      </div>
+      <button class="run-btn">Run POI point pipeline</button>
+      <div class="console" data-console></div>
+      <div class="outputs" data-outputs></div>
+    </div>
+  </section>
+
+  <section class="stage" id="stage-5" data-step="5">
+    <div class="stage-marker"><span>05</span></div>
+    <div class="stage-body">
+      <h2>POI point area</h2>
+      <p class="desc">Assigns each POI point an area: same TAZ+class average → same municipality+class average → global class average. Observation towers are folded into communications towers for this step only.</p>
+      <div class="field-grid">
+        <label>POIS_all.gpkg <input type="file" data-role="pois_all_gpkg"></label>
+        <label>Points percentage csv <input type="file" data-role="points_percentage_csv"></label>
+        <label>Polygons percentage csv <input type="file" data-role="polygons_percentage_csv" accept=".csv"></label>
+      </div>
+      <button class="run-btn">Run area assignment</button>
+      <div class="console" data-console></div>
+      <div class="outputs" data-outputs></div>
+    </div>
+  </section>
+
+  <section class="stage" id="stage-6" data-step="6">
+    <div class="stage-marker"><span>06</span></div>
+    <div class="stage-body">
+      <h2>Clean POIs</h2>
+      <p class="desc">Removes POI points/polygons that overlap the building/landuse layer, then drops points sitting inside a same-class polygon.</p>
+      <div class="field-grid">
+        <label>POI points (with area) gpkg <input type="file" data-role="poi_points_gpkg"></label>
+        <label>POI polygons gpkg <input type="file" data-role="poi_polygons_gpkg"></label>
+        <label>landuse_building_job2022.gpkg <input type="file" data-role="landuse_building_job_gpkg" accept=".gpkg"></label>
+      </div>
+      <button class="run-btn">Run cleanup</button>
+      <div class="console" data-console></div>
+      <div class="outputs" data-outputs></div>
+    </div>
+  </section>
+
+  <section class="stage" id="stage-7" data-step="7">
+    <div class="stage-marker"><span>07</span></div>
+    <div class="stage-body">
+      <h2>jobLocation</h2>
+      <p class="desc">Combines cleaned POI points/polygons and building/landuse job elements into one job-location table with x, y coordinates.</p>
+      <div class="field-grid">
+        <label>poi_points_final_cleaned.gpkg <input type="file" data-role="poi_points_final_gpkg"></label>
+        <label>POI_cleaned_polygon.gpkg <input type="file" data-role="poi_polygons_gpkg"></label>
+        <label>landuse_building_job2022.gpkg <input type="file" data-role="landuse_building_job_gpkg" accept=".gpkg"></label>
+      </div>
+      <button class="run-btn">Generate jobLocation</button>
+      <div class="console" data-console></div>
+      <div class="outputs" data-outputs></div>
+    </div>
+  </section>
+
+  <section class="stage stage-final" id="stage-8" data-step="8">
+    <div class="stage-marker"><span>08</span></div>
+    <div class="stage-body">
+      <h2>jobAttributes</h2>
+      <p class="desc">Aggregates job area by zone and municipality, allocates municipality job population down to zones, and merges the result into your zone attribute table.</p>
+      <div class="field-grid">
+        <label>jobLocation.csv <input type="file" data-role="joblocation_csv"></label>
+        <label>Municipality population csv <input type="file" data-role="gemeinde_population_csv"></label>
+        <label>Existing zone attributes csv <input type="file" data-role="zone_attributes_csv" accept=".csv"></label>
+      </div>
+      <button class="run-btn">Generate final zone attributes</button>
+      <div class="console" data-console></div>
+      <div class="outputs" data-outputs></div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <p>Runs locally against <code>geopandas</code> + the ohsome API — no QGIS session required.</p>
+</footer>
+
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
