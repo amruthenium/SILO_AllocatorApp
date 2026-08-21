@@ -48,6 +48,7 @@ def _prepare_layer(gpkg_path, layer, percentage_csv, log):
     log(f" Joining layer '{layer}' from {gpkg_path} with {percentage_csv} on ID column '{id_col}'")
     gdf[id_col] = gdf[id_col].astype(str) #forces both to the sametype or else merge fails and concat usage is a bit clunky
     perc[id_col] = perc[id_col].astype(str)
+    extra_cols = [c for c in ["TAZ_ID", "AGS", "gemeinde_ID"] if c in perc.columns]
     gdf = gdf.merge(perc[[id_col, "jobType", "job_percentage"]], on=id_col, how="inner")
     return gdf.to_crs(TARGET_CRS)
 
