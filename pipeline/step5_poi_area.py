@@ -32,11 +32,7 @@ def _detect_layers(gpkg_path, log):
     log(f"Using '{points_layer}' as points layer, '{polygons_layer}' as polygons layer")
     return points_layer, polygons_layer
 
-
 def _prepare_layer(gpkg_path, layer, percentage_csv, log):
-    global gdf, perc, id_col
-    gdf[id_col] = gdf[id_col].astype(str) #forces both to the sametype or else merge fails and concat usage is a bit clunky
-    perc[id_col] = perc[id_col].astype(str)
     gdf = gpd.read_file(gpkg_path, layer=layer) 
     perc = pd.read_csv(percentage_csv)
     id_col = next(
@@ -50,6 +46,8 @@ def _prepare_layer(gpkg_path, layer, percentage_csv, log):
             f"found columns in CSV: {perc.columns.tolist()}"
         )
     log(f" Joining layer '{layer}' from {gpkg_path} with {percentage_csv} on ID column '{id_col}'")
+    gdf[id_col] = gdf[id_col].astype(str) #forces both to the sametype or else merge fails and concat usage is a bit clunky
+    perc[id_col] = perc[id_col].astype(str)
     gdf = gdf.merge(perc[[id_col, "jobType", "job_percentage"]], on=id_col, how="inner")
     return gdf.to_crs(TARGET_CRS)
 
