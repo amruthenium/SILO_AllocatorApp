@@ -49,7 +49,7 @@ def _prepare_layer(gpkg_path, layer, percentage_csv, log):
     gdf[id_col] = gdf[id_col].astype(str)
     perc[id_col] = perc[id_col].astype(str)
     log(f"  percentage csv columns available: {list(perc.columns)}")
-    extra_cols = [c for c in ["TAZ_ID", "AGS", "gemeinde_ID"] if c in perc.columns]
+    extra_cols = [c for c in ["TAZ_ID"] if c in perc.columns]
     log(f"  pulling extra columns into geometry layer: {extra_cols}")
     merge_cols = [id_col] + extra_cols + ["jobType", "job_percentage"]
     gdf = gdf.merge(perc[merge_cols], on=id_col, how="inner")
@@ -88,12 +88,17 @@ def run(pois_all_gpkg, points_percentage_csv, polygons_percentage_csv, out_dir, 
         polygons.groupby(["TAZ_ID", "fclass_for_area"])["area_m2"].mean().reset_index()
         .rename(columns={"area_m2": "avg_area_taz"})
     )
-    log("Computing average polygon area by AGS/gemeinde + fclass...")
-    ags_col = "AGS" if "AGS" in polygons.columns else "gemeinde_ID"
-    avg_by_ags = (
-        polygons.groupby([ags_col, "fclass_for_area"])["area_m2"].mean().reset_index()
-        .rename(columns={"area_m2": "avg_area_ags"})
-    )
+    ags_col = next((c for c in ["AGS", "gemeinde_ID"] if c in polygons.columns), None)
+    if ags_col:
+        log("Computing average polygon area by AGS/gemeinde + fclass...")
+        avg_by_ags = (
+            polygons.groupby([ags_col, "fclass_for_area"])["area_m2"].mean().reset_index()
+            .rename(columns={"area_m2": "avg_area_ags"})
+        )
+    else:
+        log("No AGS/gemeinde_ID column found — skipping the municipality-level "
+            "averaging tier (falling straight from TAZ average to global average).")
+        avg_by_ags = None
     log("Computing global average area by fclass...")
     avg_global = (
         polygons.groupby("fclass_for_area")["area_m2"].mean().reset_index()
@@ -101,11 +106,14 @@ def run(pois_all_gpkg, points_percentage_csv, polygons_percentage_csv, out_dir, 
     )
 
     points = points.merge(avg_by_taz, on=["TAZ_ID", "fclass_for_area"], how="left")
-    points_ags_col = "AGS" if "AGS" in points.columns else "gemeinde_ID"
-    points = points.merge(
-        avg_by_ags, left_on=[points_ags_col, "fclass_for_area"],
-        right_on=[ags_col, "fclass_for_area"], how="left",
-    )
+    if avg_by_ags is not None:
+        points_ags_col = next((c for c in ["AGS", "gemeinde_ID"] if c in points.columns), None)
+        points = points.merge(
+            avg_by_ags, left_on=[points_ags_col, "fclass_for_area"],
+            right_on=[ags_col, "fclass_for_area"], how="left",
+        )
+    else:
+        points["avg_area_ags"] = pd.NA
     points = points.merge(avg_global, on="fclass_for_area", how="left")
 
     points["area_m2"] = (
