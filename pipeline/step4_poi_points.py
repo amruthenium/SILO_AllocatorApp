@@ -65,7 +65,6 @@ def run(bbox, keys, zones_path, jobtype_map_csv, out_dir, log, poi_file=None):
                 merged["_tag_value"] = merged["_tag_value"].fillna(merged[k])
             mapping = jobtype_map[["osm_value", "jobType"]].drop_duplicates()
             merged = merged.merge(mapping, left_on="_tag_value", right_on="osm_value", how="left")
-    merged = merged.merge(jobtype_map, left_on="_tag_value", right_on="osm_value", how="left")
     with_jobtype = merged[merged["jobType"].notna()].copy()
     zone_counts = with_jobtype.groupby("TAZ_ID").size().reset_index(name="zone_poi_count")
     with_jobtype = with_jobtype.merge(zone_counts, on="TAZ_ID")
