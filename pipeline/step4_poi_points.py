@@ -5,16 +5,16 @@ import geopandas as gpd
 import pandas as pd
 
 from config import DIRS, TARGET_CRS
-from pipeline import geo_utils, ohsome_client
+from pipeline import geo_utils
 
-
-def run(bbox, keys, zones_path, jobtype_map_csv, out_dir, log):
-    log("Fetching POI points from ohsome API...")
-    poi = ohsome_client.fetch_poi_points(bbox, keys)
-    log(f"  {len(poi)} POI point features")
-    raw_path = os.path.join(DIRS["catch_py"], "poi_points_ohsome_new.gpkg")
-    if len(poi):
-        poi.to_file(raw_path, driver="GPKG")
+def run(bbox, keys, zones_path, jobtype_map_csv, out_dir, log, poi_file=None):
+    if poi_file:
+        log(f"Loading POI polygons from uploaded file:  {os.path.basename(poi_file)}")
+        poi = gpd.read_file(poi_file)
+        log(f"  {len(poi)} POI polygon features loaded, CRS={poi.crs}")
+        raw_path = os.path.join(DIRS["catch_py"], "poi_polygons_geofabrik_new.gpkg")
+        if len(poi):
+            poi.to_file(raw_path, driver="GPKG")
 
     log("Joining TAZ_ID / gemeinde_ID to each point...")
     zones = gpd.read_file(zones_path).to_crs(TARGET_CRS)
