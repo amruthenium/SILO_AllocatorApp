@@ -1,5 +1,6 @@
 """Step 4: POI points — replaces catch_PY/node_all.py + QGIS point-in-polygon join."""
 import os
+from shlex import split
 
 import geopandas as gpd
 import pandas as pd
@@ -30,11 +31,40 @@ def run(bbox, keys, zones_path, jobtype_map_csv, out_dir, log, poi_file=None):
 
     log("Adding jobType and job percentage...")
     jobtype_map = pd.read_csv(jobtype_map_csv)
-    key_cols = [c for c in jobtype_map["osm_key"].unique() if c in joined.columns]
-    merged = joined.copy()
-    merged["_tag_value"] = None
-    for k in key_cols:
-        merged["_tag_value"] = merged["_tag_value"].fillna(merged[k])
+    jobtype_map = pd.read_csv(jobtype_map_csv)  # columns: osm_key, osm_value, jobType
+    STANDARD_POI_KEYS = ["shop", "amenity", "office", "tourism", "leisure",
+                             "building", "landuse"]
+    fallback_keys = list(dict.fromkeys(list(keys or []) + STANDARD_POI_KEYS))
+    fclass_col = next((c for c in ["fclass", "fclass_poi"] if c in joined.columns), None)
+    
+    if fclass_col:
+            log(f"  Detected a single '{fclass_col}' column on the POI data (Geofabrik-style) "
+                "— matching jobType by fclass")
+            mapping = jobtype_map[["osm_value", "jobType"]].drop_duplicates()
+            merged = joined.merge(mapping, left_on=fclass_col, right_on="osm_value", how="left")
+    else:
+            if "osm_key" in jobtype_map.columns:
+                candidate_keys = jobtype_map["osm_key"].unique().tolist()
+                log("Using multi-column ohsome-style matching via jobtype_mapping.csv's osm_key")
+            else:
+                candidate_keys = fallback_keys
+                log("jobtype_mapping.csv has no osm_key column — scanning the OSM keys "
+                    f"used for this fetch plus standard POI keys: {candidate_keys}")
+    
+            key_cols =[c for c in candidate_keys if c in joined.columns]
+            if not key_cols:
+                raise ValueError(
+                    "Could not tell how to match jobtype_mapping.csv to your POI data -"
+                    f"none of the expected OSM keys {candidate_keys} were found in the POI data"
+                    f"({candidate_keys}  were found in the fetched POI data)"
+                )
+            log(f"Matching using columns: {key_cols}")
+            merged = joined.copy()
+            merged["_tag_value"] = None
+            for k in key_cols:
+                merged["_tag_value"] = merged["_tag_value"].fillna(merged[k])
+            mapping = jobtype_map[["osm_value", "jobType"]].drop_duplicates()
+            merged = merged.merge(mapping, left_on="_tag_value", right_on="osm_value", how="left")
     merged = merged.merge(jobtype_map, left_on="_tag_value", right_on="osm_value", how="left")
     with_jobtype = merged[merged["jobType"].notna()].copy()
     zone_counts = with_jobtype.groupby("TAZ_ID").size().reset_index(name="zone_poi_count")
