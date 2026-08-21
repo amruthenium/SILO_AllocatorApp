@@ -33,25 +33,48 @@ def _detect_layers(gpkg_path, log):
     return points_layer, polygons_layer
 
 
-def _prepare_layer(gpkg_path, layer, percentage_csv, id_col="osm_id"):
-    gdf = gpd.read_file(gpkg_path, layer=layer) if layer else gpd.read_file(gpkg_path)
+def _prepare_layer(gpkg_path, layer, percentage_csv, log):
+    gdf = gpd.read_file(gpkg_path, layer=layer) 
     perc = pd.read_csv(percentage_csv)
+    id_col = next(
+        (c for c in ["osm_id", "osm_id_poi"] if c in gdf.columns and c in perc.columns),
+        None
+    )
+    if id_col is None:
+        raise ValueError(
+            f"Could not find a common ID column between {gpkg_path} layer '{layer}' "
+            f"and {percentage_csv}. Found columns in GPKG: {gdf.columns.tolist()}, "
+            f"found columns in CSV: {perc.columns.tolist()}"
+        )
+    log(f" Joining layer '{layer}' from {gpkg_path} with {percentage_csv} on ID column '{id_col}'")
     gdf = gdf.merge(perc[[id_col, "jobType", "job_percentage"]], on=id_col, how="inner")
     return gdf.to_crs(TARGET_CRS)
 
-def run(pois_all_gpkg, points_percentage_csv, polygons_percentage_csv, out_dir, log,
-        points_layer="points", polygons_layer="polygons", fclass_col="fclass"):
+def _fclass_column(gdf):
+    return next((c for c in ["fclass", "fclass_poi"] if c in gdf.columns), None)
+
+def run(pois_all_gpkg, points_percentage_csv, polygons_percentage_csv, out_dir, log):
+    points_layer, polygons_layer = _detect_layers(pois_all_gpkg, log)
+
     log("Loading + filtering POI points and polygons by percentage tables...")
-    points = {os.path.basename(pois_all_gpkg): _prepare_layer(pois_all_gpkg, points_layer, points_percentage_csv)}
-    #points = _prepare_layer(pois_all_gpkg, points_layer, points_percentage_csv)
-    polygons = {os.path.basename(pois_all_gpkg):_prepare_layer(pois_all_gpkg, polygons_layer, polygons_percentage_csv)}
+    points = _prepare_layer(pois_all_gpkg, points_layer, points_percentage_csv, log)
+    polygons = _prepare_layer(pois_all_gpkg, polygons_layer, polygons_percentage_csv, log)
     log(f"  {len(points)} points, {len(polygons)} polygons")
 
+
+    points_fclass_col = _fclass_column(points)
+    polygons_fclass_col = _fclass_column(polygons)
+    if not points_fclass_col or not polygons_fclass_col:
+            raise ValueError(
+                f"Could not find a fclass column in points or polygons. "
+                f"Points columns: {points.columns.tolist()}, "
+                f"Polygons columns: {polygons.columns.tolist()}"
+            )
     # Special case: use communications_tower for area assignment, keep
     # original fclass for everything else.
-    points["fclass_for_area"] = points[fclass_col].replace(FCLASS_REMAP)
-    polygons["fclass_for_area"] = polygons[fclass_col].replace(FCLASS_REMAP)
-
+    
+    points["fclass_for_area"] = points[points_fclass_col].replace(FCLASS_REMAP)
+    polygons["fclass_for_area"] = polygons[polygons_fclass_col].replace(FCLASS_REMAP)
     polygons["area_m2"] = polygons.geometry.area
 
     log("Computing average polygon area by TAZ + fclass...")
