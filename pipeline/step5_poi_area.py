@@ -46,10 +46,14 @@ def _prepare_layer(gpkg_path, layer, percentage_csv, log):
             f"found columns in CSV: {perc.columns.tolist()}"
         )
     log(f" Joining layer '{layer}' from {gpkg_path} with {percentage_csv} on ID column '{id_col}'")
-    gdf[id_col] = gdf[id_col].astype(str) #forces both to the sametype or else merge fails and concat usage is a bit clunky
+    gdf[id_col] = gdf[id_col].astype(str)
     perc[id_col] = perc[id_col].astype(str)
+    log(f"  percentage csv columns available: {list(perc.columns)}")
     extra_cols = [c for c in ["TAZ_ID", "AGS", "gemeinde_ID"] if c in perc.columns]
-    gdf = gdf.merge(perc[[id_col, "jobType", "job_percentage"]], on=id_col, how="inner")
+    log(f"  pulling extra columns into geometry layer: {extra_cols}")
+    merge_cols = [id_col] + extra_cols + ["jobType", "job_percentage"]
+    gdf = gdf.merge(perc[merge_cols], on=id_col, how="inner")
+    log(f"  columns after merge: {list(gdf.columns)}")
     return gdf.to_crs(TARGET_CRS)
 
 def _fclass_column(gdf):
