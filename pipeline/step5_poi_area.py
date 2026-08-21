@@ -34,6 +34,8 @@ def _detect_layers(gpkg_path, log):
 
 
 def _prepare_layer(gpkg_path, layer, percentage_csv, log):
+    gdf[id_col] = gdf[id_col].astype(str) #forces both to the sametype or else merge fails and concat usage is a bit clunky
+    perc[id_col] = perc[id_col].astype(str)
     gdf = gpd.read_file(gpkg_path, layer=layer) 
     perc = pd.read_csv(percentage_csv)
     id_col = next(
