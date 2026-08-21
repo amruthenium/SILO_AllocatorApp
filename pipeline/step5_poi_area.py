@@ -8,6 +8,30 @@ import pandas as pd
 
 from config import DIRS, FCLASS_REMAP, TARGET_CRS
 
+def _detect_layers(gpkg_path, log):
+    """Autodetect the points and polygons layers in a GPKG file, if possible."""
+    info = gpd.list_layers(gpkg_path)
+    log(f"Detected layers in {os.path.basename(gpkg_path)}: {info}"
+        f"{list(zip(info['name'], info['geometry_type']))}")
+
+    points_layer = None
+    polygons_layer = None
+    for _, row in info.iterrows():
+        gtype = str(row["geometry_type"] or "").lower()
+        if "point" in gtype and points_layer is None:
+            points_layer = row["name"]
+        elif "polygon" in gtype and polygons_layer is None:
+            polygons_layer = row["name"]
+
+    if points_layer is None or polygons_layer is None:
+        raise ValueError(
+            f"Could not autodetect points and polygons layers in {gpkg_path} — "
+            f"{os.path.basename(gpkg_path)} has layers: {info['name'].tolist()}, geometry types: {info['geometry_type'].tolist()}. "
+            f"found: {info}"
+        )
+    log(f"Using '{points_layer}' as points layer, '{polygons_layer}' as polygons layer")
+    return points_layer, polygons_layer
+
 
 def _prepare_layer(gpkg_path, layer, percentage_csv, id_col="osm_id"):
     gdf = gpd.read_file(gpkg_path, layer=layer) if layer else gpd.read_file(gpkg_path)
@@ -15,12 +39,12 @@ def _prepare_layer(gpkg_path, layer, percentage_csv, id_col="osm_id"):
     gdf = gdf.merge(perc[[id_col, "jobType", "job_percentage"]], on=id_col, how="inner")
     return gdf.to_crs(TARGET_CRS)
 
-
 def run(pois_all_gpkg, points_percentage_csv, polygons_percentage_csv, out_dir, log,
         points_layer="points", polygons_layer="polygons", fclass_col="fclass"):
     log("Loading + filtering POI points and polygons by percentage tables...")
-    points = _prepare_layer(pois_all_gpkg, points_layer, points_percentage_csv)
-    polygons = _prepare_layer(pois_all_gpkg, polygons_layer, polygons_percentage_csv)
+    points = {os.path.basename(pois_all_gpkg): _prepare_layer(pois_all_gpkg, points_layer, points_percentage_csv)}
+    #points = _prepare_layer(pois_all_gpkg, points_layer, points_percentage_csv)
+    polygons = {os.path.basename(pois_all_gpkg):_prepare_layer(pois_all_gpkg, polygons_layer, polygons_percentage_csv)}
     log(f"  {len(points)} points, {len(polygons)} polygons")
 
     # Special case: use communications_tower for area assignment, keep
